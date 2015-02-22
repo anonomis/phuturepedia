@@ -1,6 +1,20 @@
 j = require("jquery2")
 _ = require("lodash")
 
+dataResource = 
+  wikipedia: (page) ->
+    d = j.Deferred()
+    j.ajax { 
+      url: "http://en.wikipedia.org/w/api.php?action=parse&page=" + page + "&format=json",
+      dataType: 'jsonp'
+      success: (data) ->
+        d.resolve data.parse.text["*"]        
+    }
+    return d
+
+
+dataResource.wikipedia("Stockholm").then ->
+  
 style = """
 .sq {
   position: absolute;
@@ -114,21 +128,29 @@ class Widget
     ch.kill() for ch in @children
     @children = []
 
-  cb: (fn, args...) =>
+  cb: (fn) ->
     console.log "outer", this
     =>
       console.log "inner", this
       unless @ded?
-        console.log "do", fn, "arg", args
-        fn.apply(this, args)
+        console.log "do", fn, "arg", arguments
+        fn.apply(this, arguments)
       else
         console.warn "You are talking to the dead"
 
 
 class Box extends Widget
-  constructor: ->
+  constructor: (page) ->
     super()
     console.log @
+    @getPage "Stockholm"
+
+  getPage: (page) ->
+    dataResource.wikipedia(page).then @cb @displayPage
+
+  displayPage: (page) ->
+    @find(".content").html(page)
+
 
   middle: ->
     @find(".sq").css
@@ -185,16 +207,14 @@ class Orchestrator extends RootWidget
 
   moveUpperLeft: -> =>
     @children[@children.length - 1]?.upperLeft()
-    _.delay @cb(@makeBox), 500
 
   makeBox: ->
     box = new Box()
     @child box
-
     box.middle()
-    _.delay @cb(@moveUpperLeft(0)), 200
+
 
 orchestrator = new Orchestrator()
 
-clean = -> orchestrator.kill()
-_.delay clean, 3000
+#clean = -> orchestrator.kill() 
+#_.delay clean, 3000
